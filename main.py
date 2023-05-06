@@ -1,5 +1,5 @@
 import openai
-from settings import Settings
+from settings import Settings, Role
 from telegram import Update
 from telegram.ext import (
     Updater,
@@ -18,10 +18,7 @@ logger = logging.getLogger(__name__)
 class LanguiniBot:
     def __init__(self, settings: Settings):
         self.settings = settings
-        self.correct_prompt = "Correct the following sentence and explain any errors"
-        self.respond_prompt = "Provide a response to the following sentence"
         self.conversation_flow = defaultdict(list)
-        self.memory = 2
 
     def start(self, update: Update, context: CallbackContext) -> None:
         """Send a message when the command /start is issued."""
@@ -30,16 +27,16 @@ class LanguiniBot:
             f"Hi {name}! I am an AI-powered bot that helps you learn languages by engaging you in conversation and improving your understanding.\nStart a conversation in your favorite language."
         )
 
-    def get_response(self, chat_id: int, prompt_context: str, history: int = 1) -> str:
+    def get_response(self, chat_id: int, role: Role) -> str:
         """Send text to OpenAI API and get response"""
         past_responses = [
-            {"role": "user", "content": f"{prompt_context}: {content}"}
-            for content in self.conversation_flow[chat_id][-history:]
+            {"role": "user", "content": f"{role.prompt}: {content}"}
+            for content in self.conversation_flow[chat_id][-role.memory :]
         ]
         response = openai.ChatCompletion.create(
             model=self.settings.model,
             messages=[
-                self.settings.roles["teacher"],
+                role.system_prompt,
                 *past_responses,
             ],
         )
@@ -54,11 +51,10 @@ class LanguiniBot:
         self.conversation_flow[chat_id].append(text)
 
         # Get response from OpenAI API
-        response = self.get_response(chat_id, self.correct_prompt)
-        # Send response to chat
-        context.bot.send_message(chat_id=chat_id, text=response)
-        response = self.get_response(chat_id, self.respond_prompt, history=2)
-        context.bot.send_message(chat_id=chat_id, text=response)
+        for role in (self.settings.teacher, self.settings.partner):
+            response = self.get_response(chat_id, role)
+            # Send response to chat
+            context.bot.send_message(chat_id=chat_id, text=response)
 
     def run(self) -> None:
         """Start the bot"""
