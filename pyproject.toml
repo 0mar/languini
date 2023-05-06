@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "languinibot"
+version = "0.1.0"
+description = "Telegram bot with openAI integration to learn languages"
+authors = ["Omar Richardson"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pydantic = {extras = ["dotenv"], version = "^1.10.7"}
+openai = "^0.27.6"
+python-telegram-bot = "13.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
