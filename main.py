@@ -28,7 +28,7 @@ class LanguiniBot:
         )
 
     def get_response(self, chat_id: int, role: Role) -> str:
-        """Send text to OpenAI API and get response"""
+        """Send text to OpenAI API and get response using the provided role"""
         past_responses = [
             {"role": "user", "content": f"{role.prompt}: {content}"}
             for content in self.conversation_flow[chat_id][-role.memory :]
@@ -40,11 +40,10 @@ class LanguiniBot:
                 *past_responses,
             ],
         )
-        logger.debug(response)
         return response.choices[0].message.content
 
     def handle_message(self, update: Update, context: CallbackContext) -> None:
-        """Handle incoming message"""
+        """Handle incoming message and reply"""
         message = update.message
         chat_id = message.chat_id
         text = message.text
