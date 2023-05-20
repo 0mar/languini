@@ -1,5 +1,5 @@
 import openai
-from settings import Settings, Role
+from settings import Settings, Role, Thread
 from telegram import Update
 from telegram.ext import (
     Updater,
@@ -9,7 +9,6 @@ from telegram.ext import (
     CallbackContext,
 )
 import logging
-from collections import defaultdict
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -18,7 +17,7 @@ logger = logging.getLogger(__name__)
 class LanguiniBot:
     def __init__(self, settings: Settings):
         self.settings = settings
-        self.conversation_flow = defaultdict(list)
+        self.threads = {}
 
     def start(self, update: Update, context: CallbackContext) -> None:
         """Send a message when the command /start is issued."""
@@ -30,16 +29,13 @@ class LanguiniBot:
 
     def get_response(self, chat_id: int, role: Role) -> str:
         """Send text to OpenAI API and get response using the provided role"""
-        past_responses = [
-            {"role": "user", "content": f"{role.prompt}: {content}"}
-            for content in self.conversation_flow[chat_id][-role.memory :]
+        messages = [
+            role.system_prompt,
+            *self.threads[(chat_id, role.name)].last(role.memory),
         ]
         response = openai.ChatCompletion.create(
             model=self.settings.model,
-            messages=[
-                role.system_prompt,
-                *past_responses,
-            ],
+            messages=messages,
         )
         return response.choices[0].message.content
 
@@ -48,16 +44,19 @@ class LanguiniBot:
         message = update.message
         chat_id = message.chat_id
         text = message.text
-        self.conversation_flow[chat_id].append(text)
         logger.info(f"Received new message from {chat_id}")
 
         # Get response from OpenAI API
         for role in (self.settings.teacher, self.settings.partner):
+            if (key := (chat_id, role.name)) not in self.threads:
+                self.threads[key] = Thread(chat_id, [])
+            self.threads[key].add(text)
             response = self.get_response(chat_id, role)
             logger.info(f"Received {role.name} reponse from openAI")
             # Send response to chat
             context.bot.send_message(chat_id=chat_id, text=response)
             logger.info(f"Sent {role.name} reponse from openAI")
+            self.threads[key].add(response, from_self=False)
 
     def run(self) -> None:
         """Start the bot"""
