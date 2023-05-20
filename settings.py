@@ -14,20 +14,36 @@ class Role:
         return {"role": "system", "content": self.context}
 
 
+@dataclass
+class Thread:
+    chat_id: int
+    lines: list[dict[str, str]]
+
+    def add(self, text: str, from_self: bool = True):
+        if from_self:
+            name = "user"
+        else:
+            name = "assistant"
+        self.lines.append({"role": name, "content": text})
+
+    def last(self, n: int = 3):
+        return self.lines[-n:]
+
+
 class Settings(BaseSettings):
     openai_key: str
     telegram_token: str
     teacher: Role = Role(
         "teacher",
-        "Correct the following sentence and explain any errors",
-        "You are a language teacher",
+        "",
+        "You are a language teacher that corrects sentences and explains any errors",
         1,
     )
     partner: Role = Role(
         "partner",
-        "Provide a response to the following sentence",
-        "You are a conversation partner",
-        2,
+        "",
+        "You are a conversation partner that responds to the previous sentence, keeping the conversation going",
+        3,
     )
 
     model: str = "gpt-3.5-turbo"
