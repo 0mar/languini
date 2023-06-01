@@ -1,5 +1,5 @@
 import openai
-from settings import Settings, Role, Thread
+from settings import Settings, Role, Thread, modes
 from telegram import Update
 from telegram.ext import (
     Updater,
@@ -18,6 +18,7 @@ class LanguiniBot:
     def __init__(self, settings: Settings):
         self.settings = settings
         self.threads = {}
+        self.roles = modes[settings.mode]
 
     def start(self, update: Update, context: CallbackContext) -> None:
         """Send a message when the command /start is issued."""
@@ -47,10 +48,10 @@ class LanguiniBot:
         logger.info(f"Received new message from {chat_id}")
 
         # Get response from OpenAI API
-        for role in (self.settings.teacher, self.settings.partner):
+        for role in self.roles:
             if (key := (chat_id, role.name)) not in self.threads:
                 self.threads[key] = Thread(chat_id, [])
-            self.threads[key].add(text)
+            self.threads[key].add(f"{role.prompt}{text}")
             response = self.get_response(chat_id, role)
             logger.info(f"Received {role.name} reponse from openAI")
             # Send response to chat
